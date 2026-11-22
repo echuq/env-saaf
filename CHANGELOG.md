@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Fixed: contradictory `min`/`max`, `minLength`/`maxLength` bounds and empty `choices` are rejected as schema errors even when the variable is absent (fixes #220).
+
 - Added: `test-cli.js`, a CLI integration suite wired into `npm test`, that runs `cli.js` as a real subprocess in throwaway temp projects and asserts process-level behaviour — exit codes, stdout vs stderr, `--json` shape, `check`/`scan`/`example --write`/`init` round-trips in CommonJS and `"type": "module"` projects, missing-directory errors — with a scrubbed child environment so developer env vars cannot leak in (fixes #237).
 
 - Added: `scanCode` (and therefore `scanDir` and the CLI `scan`/`check`/`example` commands) detects Vite-style `import.meta.env` reads — dot access (`import.meta.env.VITE_API_KEY`), bracket access and destructuring — returned in the same sorted list as `process.env` reads, with the same rule that mentions inside comments and string literals do not count (fixes #225).

@@ -1761,6 +1761,67 @@ assert.deepStrictEqual(
   assert.strictEqual(validateEnv({ OK: { type: 'int', required: true } }, { OK: '42' }).OK, 42);
 }
 
+// Issue #220: contradictory bounds and empty choices are schema errors,
+// regardless of whether an optional key has a value.
+{
+  const cases = [
+    [{ type: 'number', min: 10, max: 5 }, '7', '"min" must not exceed "max"'],
+    [{ type: 'string', minLength: 10, maxLength: 5 }, 'abc', '"minLength" must not exceed "maxLength"'],
+    [{ type: 'string', choices: [] }, 'a', '"choices" must be a non-empty array'],
+  ];
+  for (const [rule, value, message] of cases) {
+    for (const input of [{}, { CONFIG: value }]) {
+      for (const options of [{}, { throwOnError: false }]) {
+        assert.throws(
+          () => validateEnv({ CONFIG: rule }, input, options),
+          err => err instanceof EnvSaafError && err.errors.length === 1
+            && err.errors[0] === `CONFIG: ${message}`,
+        );
+      }
+    }
+  }
+  assert.throws(
+    () => validateEnv({
+      N: cases[0][0], S: cases[1][0], M: cases[2][0],
+    }, {}),
+    err => err instanceof EnvSaafError && err.errors.length === 3
+      && err.errors[0] === `N: ${cases[0][2]}`
+      && err.errors[1] === `S: ${cases[1][2]}`
+      && err.errors[2] === `M: ${cases[2][2]}`,
+  );
+
+  // Invalid bound types keep their own diagnostic, not a coercive comparison.
+  for (const rule of [
+    { min: '10', max: 5 }, { min: 10, max: '5' },
+    { min: Infinity, max: 5 }, { min: 10, max: -Infinity },
+    { min: NaN, max: 5 }, { min: 10, max: NaN },
+    { minLength: 2.5, maxLength: 1 }, { minLength: 2, maxLength: -1 },
+    { minLength: '10', maxLength: 5 }, { minLength: 10, maxLength: '5' },
+  ]) {
+    assert.throws(
+      () => validateEnv({ CONFIG: rule }, {}),
+      err => err instanceof EnvSaafError && err.errors.length === 1
+        && !err.message.includes('must not exceed'),
+    );
+  }
+
+  const valid = {
+    N: { type: 'number', min: -2, max: 2 },
+    I: { type: 'int', min: 0, max: 0 },
+    P: { type: 'port', min: 80, max: 80, default: 80 },
+    S: { minLength: 0, maxLength: 0 },
+    T: { minLength: 1, maxLength: 3 },
+    M: { choices: ['a'] },
+    B: { type: 'boolean', choices: [false], default: false },
+  };
+  assert.deepStrictEqual(validateEnv(valid, {}), { P: 80, B: false });
+  assert.deepStrictEqual(
+    validateEnv(valid, { N: '-2', I: '0', S: ' ', T: 'abc', M: 'a' }),
+    { N: -2, I: 0, P: 80, S: '', T: 'abc', M: 'a', B: false },
+  );
+  assert.strictEqual(validateEnv({ N: { type: 'number', choices: [0, 1] } }, { N: '0' }).N, 0);
+}
+
 // Issue #133: a directory argument that is a file or does not exist must be
 // reported clearly with exit 2, never a raw Node stack trace.
 {

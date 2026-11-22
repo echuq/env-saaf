@@ -85,10 +85,21 @@ function validateSchema(schema) {
         errors.push(`${key}: "${opt}" must be a number`);
       }
     }
+    if (Number.isFinite(rule.min) && Number.isFinite(rule.max) && rule.min > rule.max) {
+      errors.push(`${key}: "min" must not exceed "max"`);
+    }
     for (const opt of ['minLength', 'maxLength']) {
       if (rule[opt] !== undefined && (!Number.isInteger(rule[opt]) || rule[opt] < 0)) {
         errors.push(`${key}: "minLength" and "maxLength" must be non-negative integers`);
       }
+    }
+    if (Number.isInteger(rule.minLength) && rule.minLength >= 0
+      && Number.isInteger(rule.maxLength) && rule.maxLength >= 0
+      && rule.minLength > rule.maxLength) {
+      errors.push(`${key}: "minLength" must not exceed "maxLength"`);
+    }
+    if (Array.isArray(rule.choices) && rule.choices.length === 0) {
+      errors.push(`${key}: "choices" must be a non-empty array`);
     }
     if (rule.length !== undefined && (!Number.isInteger(rule.length) || rule.length < 0)) {
       errors.push(`${key}: "length" must be a non-negative integer`);
